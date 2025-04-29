@@ -9,7 +9,7 @@ st.set_page_config(page_title="TGC Tours Dashboard Plus", layout="wide")
 st.title("🏌️‍♂️ TGC Tours - Dashboard Plus 2025")
 
 # --- Connessione al database ---
-connection_string = "postgresql://postgres.eqxbysuhuvmuxkowzzzi:#R!Pr_#%J6)briX@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
+connection_string = st.secrets["connection_string"]
 engine = create_engine(connection_string)
 
 # --- Caricamento dati ---
