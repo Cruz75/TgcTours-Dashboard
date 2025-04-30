@@ -1,3 +1,11 @@
+import streamlit as st
+import pandas as pd
+import requests
+import time
+    import scraper_update_fixed
+
+st.set_page_config(page_title='TGC Tours Dashboard', layout='wide')
+
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
 
 
@@ -13,13 +21,9 @@ def estrai_date_range(date_str):
 
 
 
-import streamlit as st
 st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
-import pandas as pd
 from sqlalchemy import create_engine, text
-import requests
 from bs4 import BeautifulSoup
-import time
 
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
@@ -105,7 +109,6 @@ def update_promotions():
 
 # 🔄 Funzione per aggiornare tornei e dati leaderboard
 def aggiorna_tutto():
-    import scraper_update_fixed
     scraper_update_fixed.main()
 
 if st.button("🔄 Aggiorna database tornei"):
