@@ -11,6 +11,7 @@ st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
 
 # Funzione per estrarre date da stringa tipo "10/07 - 10/12"
 def estrai_date_range(date_str):
+    pass
 try:
     start, end = date_str.split(" - ")
 start = pd.to_datetime(start, format="%m/%d")
@@ -92,6 +93,7 @@ total_updated = 0
 for tid in existing_ids:
     promotions = extract_promotions(tid)
 with engine.begin() as conn:
+    pass
 for tournament_id, player_name, promo_str in promotions:
     conn.execute(text("""
 UPDATE leaderboards
@@ -112,7 +114,9 @@ def aggiorna_tutto():
     scraper_update_fixed.main()
 
 if st.button("🔄 Aggiorna database tornei"):
+    pass
 with st.spinner("Aggiornamento dei tornei e dei dati in corso..."):
+    pass
 try:
     aggiorna_tutto()
 st.success("✅ Dati aggiornati con successo!")
@@ -139,6 +143,7 @@ with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
 # 📅 Selezione opzionale per data
 @st.cache_data
 def estrai_date_range(date_str):
+    pass
 try:
     start, end = date_str.split(" - ")
 start = pd.to_datetime(start, format="%m/%d")
@@ -206,10 +211,12 @@ df["earnings"] = df["earnings"].apply(lambda x: f"${x:,}" if pd.notnull(x) and x
 df["purse"] = df["purse"].apply(lambda x: f"${x:,}" if pd.notnull(x) else "")
 
 def promotion_to_icons(promo):
+    pass
 if not promo or pd.isna(promo):
     return ""
 icons = []
 for mark in promo.split(","):
+    pass
 if mark == "+1":
     icons.append("🟢")
 elif mark == "-1":
