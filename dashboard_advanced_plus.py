@@ -118,6 +118,8 @@ def estrai_date_range(date_str):
         return None, None
 
 df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
+df["start_date"] = pd.to_datetime(df["start_date"]).dt.date
+df["end_date"] = pd.to_datetime(df["end_date"]).dt.date
 
 usa_data = st.checkbox("📅 Filtra tornei per data", value=False)
 
