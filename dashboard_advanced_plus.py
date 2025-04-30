@@ -13,133 +13,23 @@ engine = create_engine(DB_URL)
 # Configura layout con sidebar a destra
 st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 
-# Custom CSS per sidebar a destra
+# Custom CSS per sidebar a destra e stile tabella
 st.markdown("""
     <style>
         [data-testid="stSidebar"] {
             float: right;
         }
+        .dataframe tbody tr th:only-of-type {
+            vertical-align: middle;
+        }
+        .dataframe tbody tr th {
+            vertical-align: top;
+        }
+        .dataframe thead th {
+            text-align: center;
+        }
     </style>
 """, unsafe_allow_html=True)
-
-# 🎨 Tema selezionabile (solo per scopo visivo, non cambia il CSS del tema globale Streamlit)
-theme = st.radio("🎨 Tema visivo (solo effetto decorativo)", ["Chiaro", "Scuro"], index=0)
-if theme == "Scuro":
-    st.markdown(
-        "<style>body { background-color: #1e1e1e; color: white; }</style>",
-        unsafe_allow_html=True
-    )
-
-# 📥 Aggiorna database
-if st.button("🔄 Aggiorna database dai tornei TGC Tours"):
-
-    def get_existing_tournament_ids():
-        try:
-            df = pd.read_sql("SELECT id FROM tournaments", engine)
-            return set(df['id'].tolist())
-        except:
-            return set()
-
-    def get_tournaments(group_id):
-        url = f"https://www.tgctours.com/Tour/Tournaments?tourId={group_id}&season=2025"
-        res = requests.get(url)
-        soup = BeautifulSoup(res.text, "html.parser")
-        rows = soup.find_all("tr")
-        tournaments = []
-        for row in rows:
-            try:
-                cols = row.find_all("td")
-                week = int(cols[0].text.strip())
-                dates = cols[1].text.strip()
-                name = cols[2].text.strip()
-                course = cols[3].text.strip()
-                purse = int(cols[4].text.strip().replace("$", "").replace(",", ""))
-                champion = cols[5].text.strip()
-                link = cols[6].find("a")["href"]
-                tournament_id = int(link.split("/")[3].split("?")[0])
-                tournaments.append({
-                    "id": tournament_id, "week": week, "dates": dates,
-                    "tournament_name": name, "course": course,
-                    "purse": purse, "champion": champion
-                })
-            except:
-                continue
-        return tournaments
-
-    def get_leaderboard(tournament_id, group_letter):
-        url = f"https://www.tgctours.com/Tournament/Leaderboard/{tournament_id}?showEarnings=True"
-        res = requests.get(url)
-        soup = BeautifulSoup(res.text, "html.parser")
-        rows = soup.find_all("tr")
-        players = []
-        for row in rows:
-            cols = row.find_all("td")
-            if len(cols) >= 12:
-                try:
-                    nation_tag = cols[1].find("span")
-                    nationality = nation_tag["title"] if nation_tag else None
-
-                    player_link = cols[2].find("a")
-                    raw_name = player_link["title"] if player_link else ""
-                    platform = raw_name.split(" - ")[0] if " - " in raw_name else None
-                    player = player_link.text.strip()
-
-                    scores = [int(c.text.strip()) if c.text.strip().isdigit() else None for c in cols[4:8]]
-                    strokes = int(cols[8].text.strip()) if cols[8].text.strip().isdigit() else None
-                    overunder = cols[3].text.strip()
-                    total = int(overunder) if overunder.replace("-", "").isdigit() else None
-
-                    earnings_raw = cols[10].text.strip().replace("$", "").replace(",", "")
-                    earnings = int(earnings_raw) if earnings_raw.isdigit() else 0
-
-                    # Promozione / retrocessione
-                    marks_cell = cols[11]
-                    icons = marks_cell.find_all("i")
-                    marks = []
-                    for icon in icons:
-                        cls = icon.get("class", [])
-                        if "fe-icon-arrow-up-circle" in cls:
-                            marks.append("+1")
-                        elif "fe-icon-arrow-down-circle" in cls:
-                            marks.append("-1")
-                        elif "fe-icon-award" in cls:
-                            marks.append("winner")
-                        elif "fa" in cls and "fa-bolt" in cls:
-                            marks.append("fast_track")
-                    promotion = ",".join(marks)
-
-                    players.append({
-                        "player": player, "group": group_letter, "nationality": nationality, "platform": platform,
-                        "tournament_id": tournament_id,
-                        "r1": scores[0], "r2": scores[1], "r3": scores[2], "r4": scores[3],
-                        "strokes": strokes, "total": total, "earnings": earnings,
-                        "promotion": promotion
-                    })
-                except:
-                    continue
-        return players
-
-    GROUPS = {
-        "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 19,
-        "G": 20, "H": 22, "I": 23, "J": 24, "K": 25, "L": 26
-    }
-
-    existing_ids = get_existing_tournament_ids()
-    all_tournaments, all_leaderboards = [], []
-
-    for group_letter, group_id in GROUPS.items():
-        tournaments = get_tournaments(group_id)
-        new_tournaments = [t for t in tournaments if t["id"] not in existing_ids]
-        all_tournaments.extend(new_tournaments)
-        for t in new_tournaments:
-            lb = get_leaderboard(t["id"], group_letter)
-            all_leaderboards.extend(lb)
-            time.sleep(0.5)
-
-    if all_tournaments:
-        pd.DataFrame(all_tournaments).to_sql("tournaments", engine, if_exists="append", index=False)
-        pd.DataFrame(all_leaderboards).to_sql("leaderboards", engine, if_exists="append", index=False)
-        st.success("✅ Dati aggiornati correttamente.")
 
 # 📊 Caricamento dati
 @st.cache_data
@@ -165,6 +55,21 @@ tornei_unici = sorted(df["torneo_label"].unique())
 selected_tournament = st.sidebar.selectbox("Filtro torneo", tornei_unici)
 df = df[df["torneo_label"] == selected_tournament]
 
-# 📋 Mostra tabella risultati
+# ➕ Calcolo posizione in base ai colpi
+df["posizione"] = df.groupby("torneo_label")["strokes"].rank(method="min").astype(int)
+
+# 📋 Mostra tabella risultati (con colonne selezionate)
 st.title("Risultati torneo selezionato")
-st.dataframe(df.sort_values(by="total"))
+
+# Ordina per posizione
+df = df.sort_values(by="posizione")
+
+# Colonne da mostrare
+columns_to_show = [
+    "posizione", "player", "group", "nationality", "platform",
+    "r1", "r2", "r3", "r4", "strokes", "total", "earnings", "promotion",
+    "tournament_name", "course", "purse", "dates"
+]
+
+# Mostra tabella finale
+st.dataframe(df[columns_to_show].reset_index(drop=True))
