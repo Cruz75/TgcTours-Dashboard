@@ -111,6 +111,15 @@ df_filtered = filter_dataframe(
     df_prepared, selected_group, selected_platform, selected_nation, selected_tournament
 )
 
+
+# ---- Ricalcolo posizione relativo alla selezione ----
+df_filtered["completo"] = df_filtered[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
+completi = df_filtered[df_filtered["completo"]].copy()
+completi["posizione"] = completi["strokes"].rank(method="min").astype(int)
+incompleti = df_filtered[~df_filtered["completo"]].copy()
+incompleti["posizione"] = None
+df_filtered = pd.concat([completi, incompleti]).sort_values(by=["completo", "posizione"], ascending=[False, True])
+
 # ---- Tabella risultati ----
 st.subheader("Classifica Torneo")
 columns = [
