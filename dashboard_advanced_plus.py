@@ -67,6 +67,31 @@ if st.button("🔄 Aggiorna dati"):
 
 df = load_data()
 
+# --- SWITCH TEMA GRAFICO ---
+st.sidebar.header("🎨 Tema grafico")
+selected_theme = st.sidebar.radio("Scegli un tema", ["Light", "Dark"], horizontal=True)
+
+if selected_theme == "Dark":
+    template = "plotly_dark"
+    st.markdown(
+        """
+        <style>
+        body { background-color: #0e1117; color: white; }
+        .stApp { background-color: #0e1117; }
+        </style>
+        """, unsafe_allow_html=True
+    )
+else:
+    template = "plotly_white"
+    st.markdown(
+        """
+        <style>
+        body { background-color: white; color: black; }
+        .stApp { background-color: white; }
+        </style>
+        """, unsafe_allow_html=True
+    )
+
 # --- SIDEBAR FILTRI ---
 st.sidebar.header("🎯 Filtri")
 
@@ -112,3 +137,4 @@ columns_to_display = [
 
 st.subheader("📋 Risultati Tornei")
 st.dataframe(filtered_df[columns_to_display], use_container_width=True)
+
