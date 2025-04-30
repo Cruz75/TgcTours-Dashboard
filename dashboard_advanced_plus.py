@@ -1,10 +1,6 @@
 import streamlit as st
-import pandas as pd
-from sqlalchemy import create_engine, text
-import requests
-from bs4 import BeautifulSoup
-import time
-
+st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
+st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
 
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
 
@@ -21,12 +17,16 @@ def estrai_date_range(date_str):
 
 
 
-
+import streamlit as st
+import pandas as pd
+from sqlalchemy import create_engine, text
+import requests
+from bs4 import BeautifulSoup
+import time
 
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
-st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 
 st.markdown("""
     <style>
@@ -132,6 +132,9 @@ df["end_date"] = pd.to_datetime(df["end_date"]).dt.date
 
 with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
     from streamlit_calendar import calendar
+    
+with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
+    from streamlit_calendar import calendar
     eventi = []
     for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
         eventi.append({
@@ -155,6 +158,7 @@ with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
     }
 
     calendar(events=eventi, options=calendar_config)
+    
 
 
 
