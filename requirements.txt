@@ -1,5 +1,6 @@
 streamlit
 pandas
 sqlalchemy
+beautifulsoup4
+requests
 psycopg2-binary
-plotly
