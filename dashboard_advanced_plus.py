@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
-from sqlalchemy import text
 
 # ---- Configurazione pagina ----
 st.set_page_config(page_title="TGC Tours Dashboard 2025", layout="wide")
@@ -104,13 +103,22 @@ selected_nation = st.sidebar.selectbox("Nazionalità", nation_options)
 
 # Selezione torneo
 tornei_unici = sorted(df_prepared["torneo_label"].unique())
-selected_tournament = st.sidebar.radio("Torneo", [""] + tornei_unici)
+selected_tournament = st.sidebar.radio("Torneo", tornei_unici)
 placeholder.markdown(f"**Selezionato:** {selected_tournament}")
 
 # Filtra dati
 df_filtered = filter_dataframe(
     df_prepared, selected_group, selected_platform, selected_nation, selected_tournament
 )
+
+
+# ---- Ricalcolo posizione relativo alla selezione ----
+df_filtered["completo"] = df_filtered[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
+completi = df_filtered[df_filtered["completo"]].copy()
+completi["posizione"] = completi["strokes"].rank(method="min").astype(int)
+incompleti = df_filtered[~df_filtered["completo"]].copy()
+incompleti["posizione"] = None
+df_filtered = pd.concat([completi, incompleti]).sort_values(by=["completo", "posizione"], ascending=[False, True])
 
 # ---- Tabella risultati ----
 st.subheader("Classifica Torneo")
