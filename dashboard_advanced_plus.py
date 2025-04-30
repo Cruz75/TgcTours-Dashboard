@@ -106,6 +106,37 @@ if st.button("🔄 Aggiorna database tornei"):
 df = load_data()
 
 
+from streamlit_calendar import calendar
+import json
+
+# Prepara eventi da mostrare nel calendario
+eventi = []
+for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
+    eventi.append({
+        "title": row.tournament_name,
+        "start": row.start_date.isoformat(),
+        "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),  # FullCalendar è end-exclusive
+        "allDay": True
+    })
+
+calendar_config = {
+    "initialView": "dayGridMonth",
+    "headerToolbar": {
+        "left": "prev,next today",
+        "center": "title",
+        "right": "dayGridMonth,timeGridWeek"
+    },
+    "events": eventi,
+    "editable": False,
+    "selectable": False,
+    "height": 600
+}
+
+st.markdown("### 📅 Tornei evidenziati nel calendario")
+calendar(events=eventi, options=calendar_config)
+
+
+
 # 📅 Selezione opzionale per data
 @st.cache_data
 def estrai_date_range(date_str):
@@ -118,8 +149,6 @@ def estrai_date_range(date_str):
         return None, None
 
 df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
-df["start_date"] = pd.to_datetime(df["start_date"]).dt.date
-df["end_date"] = pd.to_datetime(df["end_date"]).dt.date
 
 usa_data = st.checkbox("📅 Filtra tornei per data", value=False)
 
