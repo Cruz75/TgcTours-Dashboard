@@ -1,3 +1,4 @@
+
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
@@ -5,7 +6,6 @@ import requests
 from bs4 import BeautifulSoup
 import time
 
-# 🔐 Connessione al database
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
@@ -100,6 +100,17 @@ selected_group = st.sidebar.selectbox("Filtro gruppo", group_options)
 if selected_group != "Tutti":
     df = df[df["group"] == selected_group]
 
+# ➕ Filtri per piattaforma e nazionalità
+platform_options = ["Tutti"] + sorted(df["platform"].dropna().unique())
+selected_platform = st.sidebar.selectbox("Filtro piattaforma", platform_options)
+if selected_platform != "Tutti":
+    df = df[df["platform"] == selected_platform]
+
+nation_options = ["Tutti"] + sorted(df["nationality"].dropna().unique())
+selected_nation = st.sidebar.selectbox("Filtro nazionalità", nation_options)
+if selected_nation != "Tutti":
+    df = df[df["nationality"] == selected_nation]
+
 df["torneo_label"] = df["week"].astype(str).str.zfill(2) + " - " + df["tournament_name"] + " (" + df["dates"] + ")"
 tornei_unici = sorted(df["torneo_label"].unique())
 selected_tournament = st.sidebar.radio("Seleziona torneo", tornei_unici)
@@ -123,9 +134,9 @@ def promotion_to_icons(promo):
     icons = []
     for mark in promo.split(","):
         if mark == "+1":
-            icons.append("🟢⬆️")
+            icons.append("🟢")
         elif mark == "-1":
-            icons.append("🔴⬇️")
+            icons.append("🔴")
         elif mark == "winner":
             icons.append("🏆")
         elif mark == "fast_track":
