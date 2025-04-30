@@ -6,18 +6,31 @@ import requests
 from bs4 import BeautifulSoup
 import time
 
-# 🔐 Connessione a Supabase (configura in .streamlit/secrets.toml)
+# 🔐 Connessione al database (usando secrets)
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
+# Configura layout con sidebar a destra
 st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 
-# 🎨 Tema selezionabile
-theme = st.selectbox("Tema grafico", ["Chiaro", "Scuro"])
-if theme == "Scuro":
-    st.markdown("<style>body { background-color: #1e1e1e; color: white; }</style>", unsafe_allow_html=True)
+# Custom CSS per sidebar a destra
+st.markdown("""
+    <style>
+        [data-testid="stSidebar"] {
+            float: right;
+        }
+    </style>
+""", unsafe_allow_html=True)
 
-# 📥 Aggiorna database da TGC Tours
+# 🎨 Tema selezionabile (solo per scopo visivo, non cambia il CSS del tema globale Streamlit)
+theme = st.radio("🎨 Tema visivo (solo effetto decorativo)", ["Chiaro", "Scuro"], index=0)
+if theme == "Scuro":
+    st.markdown(
+        "<style>body { background-color: #1e1e1e; color: white; }</style>",
+        unsafe_allow_html=True
+    )
+
+# 📥 Aggiorna database
 if st.button("🔄 Aggiorna database dai tornei TGC Tours"):
 
     def get_existing_tournament_ids():
@@ -32,7 +45,6 @@ if st.button("🔄 Aggiorna database dai tornei TGC Tours"):
         res = requests.get(url)
         soup = BeautifulSoup(res.text, "html.parser")
         rows = soup.find_all("tr")
-
         tournaments = []
         for row in rows:
             try:
@@ -80,11 +92,28 @@ if st.button("🔄 Aggiorna database dai tornei TGC Tours"):
                     earnings_raw = cols[10].text.strip().replace("$", "").replace(",", "")
                     earnings = int(earnings_raw) if earnings_raw.isdigit() else 0
 
+                    # Promozione / retrocessione
+                    marks_cell = cols[11]
+                    icons = marks_cell.find_all("i")
+                    marks = []
+                    for icon in icons:
+                        cls = icon.get("class", [])
+                        if "fe-icon-arrow-up-circle" in cls:
+                            marks.append("+1")
+                        elif "fe-icon-arrow-down-circle" in cls:
+                            marks.append("-1")
+                        elif "fe-icon-award" in cls:
+                            marks.append("winner")
+                        elif "fa" in cls and "fa-bolt" in cls:
+                            marks.append("fast_track")
+                    promotion = ",".join(marks)
+
                     players.append({
                         "player": player, "group": group_letter, "nationality": nationality, "platform": platform,
                         "tournament_id": tournament_id,
                         "r1": scores[0], "r2": scores[1], "r3": scores[2], "r4": scores[3],
-                        "strokes": strokes, "total": total, "earnings": earnings
+                        "strokes": strokes, "total": total, "earnings": earnings,
+                        "promotion": promotion
                     })
                 except:
                     continue
@@ -126,18 +155,16 @@ df = load_data()
 
 # 🎛️ Filtro gruppo
 group_options = ["Tutti"] + sorted(df["group"].unique())
-selected_group = st.selectbox("Filtro gruppo", group_options)
+selected_group = st.sidebar.selectbox("Filtro gruppo", group_options)
 if selected_group != "Tutti":
     df = df[df["group"] == selected_group]
 
 # 🎛️ Filtro torneo combinato
 df["torneo_label"] = df["week"].astype(str).str.zfill(2) + " - " + df["tournament_name"] + " (" + df["dates"] + ")"
 tornei_unici = sorted(df["torneo_label"].unique())
-selected_tournament = st.selectbox("Filtro torneo", tornei_unici)
+selected_tournament = st.sidebar.selectbox("Filtro torneo", tornei_unici)
 df = df[df["torneo_label"] == selected_tournament]
 
 # 📋 Mostra tabella risultati
 st.title("Risultati torneo selezionato")
 st.dataframe(df.sort_values(by="total"))
-
-
