@@ -12,7 +12,7 @@ st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
 # Funzione per estrarre date da stringa tipo "10/07 - 10/12"
 def estrai_date_range(date_str):
 try:
-start, end = date_str.split(" - ")
+    start, end = date_str.split(" - ")
 start = pd.to_datetime(start, format="%m/%d")
 end = pd.to_datetime(end, format="%m/%d")
 return start.replace(year=2025), end.replace(year=2025)
@@ -48,7 +48,7 @@ text-align: center;
 
 @st.cache_data
 def load_data():
-query = """
+    query = """
 SELECT l.*, t.week, t.dates, t.tournament_name, t.course, t.purse
 FROM leaderboards l
 JOIN tournaments t ON l.tournament_id = t.id
@@ -56,44 +56,44 @@ JOIN tournaments t ON l.tournament_id = t.id
 return pd.read_sql(query, engine)
 
 def extract_promotions(tournament_id):
-url = f"https://www.tgctours.com/Tournament/Leaderboard/{tournament_id}?showEarnings=True"
+    url = f"https://www.tgctours.com/Tournament/Leaderboard/{tournament_id}?showEarnings=True"
 res = requests.get(url)
 soup = BeautifulSoup(res.text, "html.parser")
 rows = soup.find_all("tr")
 promos = []
 for row in rows:
-cols = row.find_all("td")
+    cols = row.find_all("td")
 if len(cols) >= 12:
-player_tag = cols[2].find("a")
+    player_tag = cols[2].find("a")
 if not player_tag:
-continue
+    continue
 player_name = player_tag.text.strip()
 marks_cell = cols[11]
 icons = marks_cell.find_all("i")
 marks = []
 for icon in icons:
-cls = icon.get("class", [])
+    cls = icon.get("class", [])
 if "fe-icon-arrow-up-circle" in cls:
-marks.append("+1")
+    marks.append("+1")
 elif "fe-icon-arrow-down-circle" in cls:
-marks.append("-1")
+    marks.append("-1")
 elif "fe-icon-award" in cls:
-marks.append("winner")
+    marks.append("winner")
 elif "fa" in cls and "fa-bolt" in cls:
-marks.append("fast_track")
+    marks.append("fast_track")
 if marks:
-promos.append((tournament_id, player_name, ",".join(marks)))
+    promos.append((tournament_id, player_name, ",".join(marks)))
 return promos
 
 def update_promotions():
-query = "SELECT DISTINCT tournament_id FROM leaderboards"
+    query = "SELECT DISTINCT tournament_id FROM leaderboards"
 existing_ids = pd.read_sql(query, engine)["tournament_id"].tolist()
 total_updated = 0
 for tid in existing_ids:
-promotions = extract_promotions(tid)
+    promotions = extract_promotions(tid)
 with engine.begin() as conn:
 for tournament_id, player_name, promo_str in promotions:
-conn.execute(text("""
+    conn.execute(text("""
 UPDATE leaderboards
 SET promotion = :promotion
 WHERE player = :player AND tournament_id = :tid
@@ -109,15 +109,15 @@ return total_updated
 
 # 🔄 Funzione per aggiornare tornei e dati leaderboard
 def aggiorna_tutto():
-scraper_update_fixed.main()
+    scraper_update_fixed.main()
 
 if st.button("🔄 Aggiorna database tornei"):
 with st.spinner("Aggiornamento dei tornei e dei dati in corso..."):
 try:
-aggiorna_tutto()
+    aggiorna_tutto()
 st.success("✅ Dati aggiornati con successo!")
 except Exception as e:
-st.error(f"Errore durante l'aggiornamento: {e}")
+    st.error(f"Errore durante l'aggiornamento: {e}")
 
 
 df = load_data()
@@ -131,7 +131,7 @@ df["end_date"] = pd.to_datetime(df["end_date"]).dt.date
 
 
 with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
-from streamlit_calendar import calendar
+    from streamlit_calendar import calendar
 
 
 
@@ -140,7 +140,7 @@ from streamlit_calendar import calendar
 @st.cache_data
 def estrai_date_range(date_str):
 try:
-start, end = date_str.split(" - ")
+    start, end = date_str.split(" - ")
 start = pd.to_datetime(start, format="%m/%d")
 end = pd.to_datetime(end, format="%m/%d")
 return start.replace(year=2025), end.replace(year=2025)
@@ -152,36 +152,36 @@ df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
 usa_data = st.checkbox("📅 Filtra tornei per data", value=False)
 
 if usa_data:
-min_data = df["start_date"].min()
+    min_data = df["start_date"].min()
 max_data = df["end_date"].max()
 selezione = st.date_input("Seleziona una data", value=min_data, min_value=min_data, max_value=max_data)
 tornei_attivi = df[(df["start_date"] <= selezione) & (df["end_date"] >= selezione)]
 if not tornei_attivi.empty:
-df = tornei_attivi.copy()
+    df = tornei_attivi.copy()
 st.markdown("### Tornei attivi nella data selezionata:")
 for torneo in tornei_attivi["tournament_name"].unique():
-st.markdown(f"- {torneo}")
+    st.markdown(f"- {torneo}")
 else:
-st.info("Nessun torneo attivo in questa data.")
+    st.info("Nessun torneo attivo in questa data.")
 else:
-st.markdown("### Visualizzazione completa senza filtro per data")
+    st.markdown("### Visualizzazione completa senza filtro per data")
 
 
 group_options = ["Tutti"] + sorted(df["group"].unique())
 selected_group = st.sidebar.selectbox("Filtro gruppo", group_options)
 if selected_group != "Tutti":
-df = df[df["group"] == selected_group]
+    df = df[df["group"] == selected_group]
 
 # ➕ Filtri per piattaforma e nazionalità
 platform_options = ["Tutti"] + sorted(df["platform"].dropna().unique())
 selected_platform = st.sidebar.selectbox("Filtro piattaforma", platform_options)
 if selected_platform != "Tutti":
-df = df[df["platform"] == selected_platform]
+    df = df[df["platform"] == selected_platform]
 
 nation_options = ["Tutti"] + sorted(df["nationality"].dropna().unique())
 selected_nation = st.sidebar.selectbox("Filtro nazionalità", nation_options)
 if selected_nation != "Tutti":
-df = df[df["nationality"] == selected_nation]
+    df = df[df["nationality"] == selected_nation]
 
 df["torneo_label"] = df["week"].astype(str).str.zfill(2) + " - " + df["tournament_name"] + " (" + df["dates"] + ")"
 tornei_unici = sorted(df["torneo_label"].unique())
@@ -207,17 +207,17 @@ df["purse"] = df["purse"].apply(lambda x: f"${x:,}" if pd.notnull(x) else "")
 
 def promotion_to_icons(promo):
 if not promo or pd.isna(promo):
-return ""
+    return ""
 icons = []
 for mark in promo.split(","):
 if mark == "+1":
-icons.append("🟢")
+    icons.append("🟢")
 elif mark == "-1":
-icons.append("🔴")
+    icons.append("🔴")
 elif mark == "winner":
-icons.append("🏆")
+    icons.append("🏆")
 elif mark == "fast_track":
-icons.append("⚡")
+    icons.append("⚡")
 return " ".join(icons)
 
 df["promotion"] = df["promotion"].apply(promotion_to_icons)
@@ -241,12 +241,12 @@ use_container_width=True
 st.markdown("---")
 st.subheader("📅 Calendario dei Tornei (visivo)")
 with st.container():
-col1, col2, col3 = st.columns([1, 6, 1])
+    col1, col2, col3 = st.columns([1, 6, 1])
 with col2:
-from streamlit_calendar import calendar
+    from streamlit_calendar import calendar
 eventi = []
 for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
-eventi.append({
+    eventi.append({
 "title": row.tournament_name,
 "start": row.start_date.isoformat(),
 "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),
