@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 import time
 
 # 🔐 Connessione a Supabase (configura in .streamlit/secrets.toml)
-DB_URL = st.secrets[connection_string"]
+DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
 st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
