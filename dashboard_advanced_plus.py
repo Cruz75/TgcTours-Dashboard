@@ -174,9 +174,28 @@ with tabs[3]:
     st.subheader("Ripartizione Montepremi")
     kind = st.radio("Mostra per", ("Nazionalità","Piattaforma"), horizontal=True)
     if kind=="Nazionalità":
-        series = df_filtered.groupby("nationality")["earnings"].sum().replace('[\$,]','',regex=True).astype(float).nlargest(10)
+        # Assicurati di avere una colonna numerica earnings_val
+df_filtered["earnings_val"] = (
+    df_filtered["earnings"]
+      .str.replace("[$,]", "", regex=True)
+      .astype(float)
+)
+# Ora raggruppa su quella
+series = df_filtered.groupby("nationality")["earnings_val"] \
+    .sum() \
+    .nlargest(10)
     else:
-        series = df_filtered.groupby("platform")["earnings"].sum().replace('[\$,]','',regex=True).astype(float).nlargest(10)
+        # Assicurati di avere una colonna numerica earnings_val
+df_filtered["earnings_val"] = (
+    df_filtered["earnings"]
+      .str.replace("[$,]", "", regex=True)
+      .astype(float)
+)
+# Ora raggruppa su quella
+series = df_filtered.groupby("platform")["earnings_val"] \
+    .sum() \
+    .nlargest(10)
+
     fig, ax = plt.subplots(figsize=(6,3))
     ax.barh(series.index, series.values)
     ax.set_xlabel("Earnings"); ax.tick_params(labelsize=6)
