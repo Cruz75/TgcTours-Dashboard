@@ -106,25 +106,3 @@ columns = ["posizione","player","group","nationality","platform",
            "tournament_name","course","purse","dates"]
 st.dataframe(df[columns], height=600, use_container_width=True)
 
-# ---- Calendario in basso ----
-st.markdown("---")
-st.subheader("📅 Calendario dei Tornei")
-col1, col2, col3 = st.columns([1,3,1])
-with col2:
-    eventi = []
-    for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
-        if pd.notnull(row.start_date):
-            eventi.append({
-                "title": row.tournament_name,
-                "start": row.start_date.isoformat(),
-                "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),
-                "allDay": True
-            })
-    calendar_config = {
-        "initialView":"dayGridMonth",
-        "headerToolbar":{"left":"prev,next","center":"title","right":""},
-        "events":eventi,
-        "height":500,
-        "aspectRatio":1
-    }
-    calendar(events=eventi, options=calendar_config)
