@@ -1,10 +1,9 @@
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine
-import plotly.express as px
 from time import sleep
 
-# --- LOGIN GRAFICO ---
+# --- LOGIN SICURO ---
 def show_login_page():
     st.markdown("""
         <div style="text-align: center; margin-top: 50px;">
@@ -39,13 +38,9 @@ login_flow()
 if not st.session_state.get("authenticated", False):
     st.stop()
 
-# --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(page_title="TGC Tours Dashboard Pro", layout="wide")
-st.title("🏌️‍♂️ TGC Tours - Dashboard Pro 2025")
-
-# --- SELEZIONE TEMA ---
-theme = st.sidebar.radio("🎨 Tema grafico", ["Light", "Dark"])
-template = "plotly_dark" if theme == "Dark" else "plotly_white"
+# --- IMPOSTAZIONI PAGINA ---
+st.set_page_config(page_title="TGC Tours Dashboard Rework", layout="wide")
+st.title("🏌️‍♂️ TGC Tours - Dashboard Ristrutturata")
 
 # --- CONNESSIONE DB ---
 connection_string = st.secrets["connection_string"]
@@ -53,7 +48,18 @@ engine = create_engine(connection_string)
 
 @st.cache_data(ttl=300)
 def load_data():
-    return pd.read_sql("SELECT * FROM leaderboards", engine)
+    df = pd.read_sql("SELECT * FROM leaderboards", engine)
+
+    # Calcola il punteggio rispetto al par
+    df["total"] = df["total"] - df["par"]
+
+    # Crea campo torneo unificato
+    df["torneo_unificato"] = "[Week " + df["week"].astype(str) + "] " + df["dates"] + " – " + df["tournament_name"]
+
+    # Ordina per data
+    df = df.sort_values(by="dates")
+
+    return df
 
 if st.button("🔄 Aggiorna dati"):
     st.cache_data.clear()
@@ -61,132 +67,48 @@ if st.button("🔄 Aggiorna dati"):
 
 df = load_data()
 
-# --- FILTRI ---
-st.sidebar.header("🔎 Filtri Dati")
-tournament_filter = st.sidebar.multiselect("Torneo", sorted(df['tournament_name'].unique()))
-platform_filter = st.sidebar.multiselect("Piattaforma", sorted(df['platform'].dropna().unique()))
-nationality_filter = st.sidebar.multiselect("Nazionalità", sorted(df['nationality'].dropna().unique()))
-week_filter = st.sidebar.multiselect("Settimana", sorted(df['week'].dropna().unique()))
+# --- SIDEBAR FILTRI ---
+st.sidebar.header("🎯 Filtri")
 
+# 🔹 Filtro Gruppo (A–L o Tutti)
+gruppi = sorted(df["group"].dropna().unique())
+selected_group = st.sidebar.selectbox("Gruppo", ["Tutti"] + gruppi)
+
+# 🔹 Filtro Torneo Unificato
+tornei_unici = sorted(df["torneo_unificato"].unique())
+selected_torneo = st.sidebar.selectbox("Torneo", ["Tutti"] + tornei_unici)
+
+# 🔹 Filtro Piattaforma
+piattaforme = sorted(df["platform"].dropna().unique())
+selected_platforms = st.sidebar.multiselect("Piattaforme", piattaforme)
+
+# 🔹 Filtro Nazionalità
+nazioni = sorted(df["nationality"].dropna().unique())
+selected_nations = st.sidebar.multiselect("Nazionalità", nazioni)
+
+# --- FILTRAGGIO DATI ---
 filtered_df = df.copy()
-if tournament_filter:
-    filtered_df = filtered_df[filtered_df['tournament_name'].isin(tournament_filter)]
-if platform_filter:
-    filtered_df = filtered_df[filtered_df['platform'].isin(platform_filter)]
-if nationality_filter:
-    filtered_df = filtered_df[filtered_df['nationality'].isin(nationality_filter)]
-if week_filter:
-    filtered_df = filtered_df[filtered_df['week'].isin(week_filter)]
-# --- GRAFICI AVANZATI ---
 
-def plot_wgr_progression(df):
-    st.subheader("📈 World Golf Ranking Progression")
-    players = st.multiselect("Giocatori da tracciare:", sorted(df['player'].unique()), key="wgr_select")
-    if players:
-        wgr_df = df[df['player'].isin(players)].dropna(subset=['wgr'])
-        fig = px.line(wgr_df.sort_values('dates'), x='dates', y='wgr', color='player',
-                      title="Progressione WGR", markers=True, template=template)
-        fig.update_layout(yaxis_title="World Golf Ranking")
-        st.plotly_chart(fig, use_container_width=True)
+if selected_group != "Tutti":
+    filtered_df = filtered_df[filtered_df["group"] == selected_group]
 
-def plot_player_rounds(df):
-    st.subheader("🏌️‍♂️ Players Round Over Time")
-    players = st.multiselect("Giocatori:", sorted(df['player'].unique()), key="rounds")
-    if players:
-        r_df = df[df['player'].isin(players)]
-        melted = pd.melt(
-            r_df, id_vars=["player", "dates", "tournament_name"],
-            value_vars=["r1", "r2", "r3", "r4"],
-            var_name="round", value_name="score"
-        ).dropna()
-        fig = px.line(melted.sort_values("dates"), x="dates", y="score", color="player",
-                      line_group="round", title="Round dopo Round", markers=True, template=template)
-        st.plotly_chart(fig, use_container_width=True)
+if selected_torneo != "Tutti":
+    filtered_df = filtered_df[filtered_df["torneo_unificato"] == selected_torneo]
 
-def plot_top_nations(df):
-    st.subheader("🌍 Migliori 5 Nazioni per Media WGR")
-    nation_df = df.dropna(subset=["wgr"])
-    top_nations = nation_df.groupby("nationality")["wgr"].mean().nsmallest(5).reset_index()
-    fig = px.bar(top_nations, x="nationality", y="wgr", title="Top 5 Nazioni", text_auto=True, template=template)
-    st.plotly_chart(fig, use_container_width=True)
+if selected_platforms:
+    filtered_df = filtered_df[filtered_df["platform"].isin(selected_platforms)]
 
-def plot_platform_scores(df):
-    st.subheader("🎮 Media Totale per Piattaforma")
-    plat_df = df.dropna(subset=["total", "platform"])
-    avg_df = plat_df.groupby("platform")["total"].mean().sort_values().reset_index()
-    fig = px.bar(avg_df, x="platform", y="total", title="Media Punteggi per Piattaforma", text_auto=True, template=template)
-    fig.update_layout(yaxis_title="Punteggio medio (minore è meglio)")
-    st.plotly_chart(fig, use_container_width=True)
+if selected_nations:
+    filtered_df = filtered_df[filtered_df["nationality"].isin(selected_nations)]
 
-# --- TABS LAYOUT ---
-tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
-    "🏆 Leaderboard", "📈 Punteggi", "🌍 Distribuzioni",
-    "📅 Timeline", "🎯 Analisi WGR", "🏅 Top 10 / Best Round",
-    "📊 Avanzate", "🌐 Nazionalità / Piattaforme"
-])
+# --- Rinomina campo 'total' come punteggio relativo al par ---
+filtered_df["score_vs_par"] = filtered_df["total"].apply(lambda x: f"{x:+d}")
 
-with tab1:
-    st.subheader("🏆 Leaderboard")
-    st.dataframe(filtered_df, use_container_width=True)
+# --- SELEZIONE COLONNE DA MOSTRARE ---
+columns_to_display = [
+    "player", "group", "tournament_name", "dates", "week", "course",
+    "platform", "nationality", "score_vs_par", "r1", "r2", "r3", "r4", "earnings"
+]
 
-with tab2:
-    st.subheader("📈 Punteggi Totali")
-    col1, col2 = st.columns(2)
-    with col1:
-        fig1 = px.histogram(filtered_df, x="total", nbins=30, title="Distribuzione Totale", template=template)
-        st.plotly_chart(fig1, use_container_width=True)
-    with col2:
-        mean_df = filtered_df.groupby("tournament_name")["total"].mean().reset_index()
-        fig2 = px.bar(mean_df, x="tournament_name", y="total", title="Media per Torneo", text_auto=True, template=template)
-        st.plotly_chart(fig2, use_container_width=True)
-
-with tab3:
-    st.subheader("🌍 Distribuzioni")
-    col1, col2 = st.columns(2)
-    with col1:
-        fig3 = px.pie(filtered_df, names="platform", title="Piattaforme", template=template)
-        st.plotly_chart(fig3, use_container_width=True)
-    with col2:
-        fig4 = px.pie(filtered_df, names="nationality", title="Nazionalità", template=template)
-        st.plotly_chart(fig4, use_container_width=True)
-
-with tab4:
-    st.subheader("📅 Timeline Tornei")
-    timeline = filtered_df.groupby("dates")["total"].mean().reset_index()
-    fig5 = px.line(timeline, x="dates", y="total", title="Punteggio Medio per Data", template=template)
-    st.plotly_chart(fig5, use_container_width=True)
-
-with tab5:
-    st.subheader("🎯 Analisi WGR")
-    wgr_df = filtered_df.dropna(subset=["wgr"])
-    fig6 = px.histogram(wgr_df, x="wgr", nbins=30, title="Distribuzione WGR", template=template)
-    st.plotly_chart(fig6, use_container_width=True)
-
-    mean_wgr = wgr_df.groupby("tournament_name")["wgr"].mean().reset_index()
-    fig7 = px.bar(mean_wgr, x="tournament_name", y="wgr", title="Media WGR per Torneo", text_auto=True, template=template)
-    st.plotly_chart(fig7, use_container_width=True)
-
-with tab6:
-    st.subheader("🏅 Top 10 Totale")
-    top10 = filtered_df[['player', 'platform', 'total', 'tournament_name']].sort_values("total").head(10)
-    st.dataframe(top10, use_container_width=True)
-
-    st.subheader("🎯 Best Round Assoluto")
-    best = pd.melt(filtered_df, id_vars=["player", "platform", "tournament_name"],
-                   value_vars=["r1", "r2", "r3", "r4"],
-                   var_name="round", value_name="score").dropna().sort_values("score").head(10)
-    st.dataframe(best, use_container_width=True)
-
-with tab7:
-    st.subheader("📈 Analisi Giocatori")
-    plot_wgr_progression(filtered_df)
-    plot_player_rounds(filtered_df)
-
-with tab8:
-    st.subheader("🌐 Analisi Nazioni / Piattaforme")
-    plot_top_nations(filtered_df)
-    plot_platform_scores(filtered_df)
-
-# --- FOOTER ---
-st.caption("TGC Tours 2025 | Dashboard Pro v3 creata con ❤️ usando Streamlit & Plotly")
-
+st.subheader("📋 Risultati Tornei")
+st.dataframe(filtered_df[columns_to_display], use_container_width=True)
