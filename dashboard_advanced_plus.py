@@ -1,3 +1,5 @@
+st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
+
 
 # Funzione per estrarre date da stringa tipo "10/07 - 10/12"
 def estrai_date_range(date_str):
@@ -125,34 +127,31 @@ df["end_date"] = pd.to_datetime(df["end_date"]).dt.date
 
 
 
-from streamlit_calendar import calendar
-import json
+with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
+    from streamlit_calendar import calendar
+    eventi = []
+    for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
+        eventi.append({
+            "title": row.tournament_name,
+            "start": row.start_date.isoformat(),
+            "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),
+            "allDay": True
+        })
 
-# Prepara eventi da mostrare nel calendario
-eventi = []
-for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
-    eventi.append({
-        "title": row.tournament_name,
-        "start": row.start_date.isoformat(),
-        "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),  # FullCalendar è end-exclusive
-        "allDay": True
-    })
+    calendar_config = {
+        "initialView": "dayGridMonth",
+        "headerToolbar": {
+            "left": "prev,next today",
+            "center": "title",
+            "right": "dayGridMonth,timeGridWeek"
+        },
+        "events": eventi,
+        "editable": False,
+        "selectable": False,
+        "height": 450
+    }
 
-calendar_config = {
-    "initialView": "dayGridMonth",
-    "headerToolbar": {
-        "left": "prev,next today",
-        "center": "title",
-        "right": "dayGridMonth,timeGridWeek"
-    },
-    "events": eventi,
-    "editable": False,
-    "selectable": False,
-    "height": 600
-}
-
-st.markdown("### 📅 Tornei evidenziati nel calendario")
-calendar(events=eventi, options=calendar_config)
+    calendar(events=eventi, options=calendar_config)
 
 
 
