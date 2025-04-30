@@ -38,8 +38,8 @@ Crea un file `.streamlit/secrets.toml` **solo in locale** o nella sezione **Secr
 
 ```toml
 connection_string = "postgresql://USERNAME:PASSWORD@HOST:PORT/DATABASE"
-login_username = "admin"
-login_password = "tigercruz"
+login_username = "xxxx"
+login_password = "xxxx"
 ```
 
 ## 🖥️ Avvio locale
