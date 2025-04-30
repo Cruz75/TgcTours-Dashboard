@@ -1,5 +1,6 @@
+import streamlit as st
+st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
-
 
 # Funzione per estrarre date da stringa tipo "10/07 - 10/12"
 def estrai_date_range(date_str):
