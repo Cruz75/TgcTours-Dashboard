@@ -1,3 +1,11 @@
+import streamlit as st
+import pandas as pd
+from sqlalchemy import create_engine, text
+import requests
+from bs4 import BeautifulSoup
+import time
+
+
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
 
 
@@ -13,12 +21,7 @@ def estrai_date_range(date_str):
 
 
 
-import streamlit as st
-import pandas as pd
-from sqlalchemy import create_engine, text
-import requests
-from bs4 import BeautifulSoup
-import time
+
 
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
