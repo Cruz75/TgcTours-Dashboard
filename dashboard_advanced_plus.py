@@ -55,14 +55,21 @@ tornei_unici = sorted(df["torneo_label"].unique())
 selected_tournament = st.sidebar.selectbox("Filtro torneo", tornei_unici)
 df = df[df["torneo_label"] == selected_tournament]
 
-# ➕ Calcolo posizione in base ai colpi
-df["posizione"] = df.groupby("torneo_label")["strokes"].rank(method="min").astype(int)
+# ➕ Calcolo posizione (solo se ha tutti i round completati)
+df["completo"] = df[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
+
+# Giocatori completi ricevono posizione in base a strokes, gli altri vanno in fondo
+df["posizione"] = None
+completi = df[df["completo"]].copy()
+completi["posizione"] = completi["strokes"].rank(method="min").astype(int)
+incompleti = df[~df["completo"]].copy()
+incompleti["posizione"] = None
+
+df = pd.concat([completi, incompleti])
+df = df.sort_values(by=["completo", "posizione"], ascending=[False, True])
 
 # 📋 Mostra tabella risultati (con colonne selezionate)
 st.title("Risultati torneo selezionato")
-
-# Ordina per posizione
-df = df.sort_values(by="posizione")
 
 # Colonne da mostrare
 columns_to_show = [
@@ -71,5 +78,4 @@ columns_to_show = [
     "tournament_name", "course", "purse", "dates"
 ]
 
-# Mostra tabella finale
 st.dataframe(df[columns_to_show].reset_index(drop=True))
