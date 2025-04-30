@@ -50,7 +50,7 @@ def estrai_date_range(date_str):
         start, end = date_str.split(" - ")
         start = pd.to_datetime(start, format="%m/%d")
         end = pd.to_datetime(end, format="%m/%d")
-        return start.replace(year=2025).date(), end.replace(year=2025).date()
+        return start.replace(year=2025).replace(year=2025), end.replace(year=2025)
     except:
         return None, None
 
@@ -76,6 +76,8 @@ if selected_nation != "Tutti":
 # ---- Selezione torneo ----
 df["torneo_label"] = df["week"].astype(str).str.zfill(2) + " – " + df["tournament_name"] + " (" + df["dates"] + ")"
 tornei_unici = sorted(df["torneo_label"].unique())
+st.sidebar.markdown(f"**Selezionato:** {selected_tournament}")
+
 selected_tournament = st.sidebar.radio("Torneo", tornei_unici)
 df = df[df["torneo_label"] == selected_tournament]
 
