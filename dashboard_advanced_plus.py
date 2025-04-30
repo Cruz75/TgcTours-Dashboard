@@ -1,5 +1,3 @@
-import streamlit as st
-st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
 
 
@@ -25,6 +23,7 @@ import time
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
+st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 
 st.markdown("""
     <style>
@@ -131,32 +130,6 @@ df["end_date"] = pd.to_datetime(df["end_date"]).dt.date
 with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
     from streamlit_calendar import calendar
     
-with st.expander("📅 Mostra il calendario dei tornei", expanded=False):
-    from streamlit_calendar import calendar
-    eventi = []
-    for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
-        eventi.append({
-            "title": row.tournament_name,
-            "start": row.start_date.isoformat(),
-            "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),
-            "allDay": True
-        })
-
-    calendar_config = {
-        "initialView": "dayGridMonth",
-        "headerToolbar": {
-            "left": "prev,next today",
-            "center": "title",
-            "right": "dayGridMonth,timeGridWeek"
-        },
-        "events": eventi,
-        "editable": False,
-        "selectable": False,
-        "height": 450
-    }
-
-    calendar(events=eventi, options=calendar_config)
-    
 
 
 
@@ -261,3 +234,33 @@ st.dataframe(
     height=700,
     use_container_width=True
 )
+
+st.markdown("---")
+st.subheader("📅 Calendario dei Tornei (visivo)")
+with st.container():
+    col1, col2, col3 = st.columns([1, 6, 1])
+    with col2:
+        from streamlit_calendar import calendar
+        eventi = []
+        for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
+            eventi.append({
+                "title": row.tournament_name,
+                "start": row.start_date.isoformat(),
+                "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),
+                "allDay": True
+            })
+
+        calendar_config = {
+            "initialView": "dayGridMonth",
+            "headerToolbar": {
+                "left": "prev,next today",
+                "center": "title",
+                "right": "dayGridMonth"
+            },
+            "events": eventi,
+            "editable": False,
+            "selectable": False,
+            "height": 350
+        }
+
+        calendar(events=eventi, options=calendar_config)
