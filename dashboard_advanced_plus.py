@@ -88,10 +88,20 @@ def update_promotions():
         time.sleep(0.3)
     return total_updated
 
-if st.button("🔄 Aggiorna promozioni mancanti"):
-    with st.spinner("Controllo e aggiornamento promozioni..."):
-        count = update_promotions()
-        st.success(f"✅ {count} promozioni aggiornate!")
+
+# 🔄 Funzione per aggiornare tornei e dati leaderboard
+def aggiorna_tutto():
+    import scraper_update_fixed
+    scraper_update_fixed.main()
+
+if st.button("🔄 Aggiorna database tornei"):
+    with st.spinner("Aggiornamento dei tornei e dei dati in corso..."):
+        try:
+            aggiorna_tutto()
+            st.success("✅ Dati aggiornati con successo!")
+        except Exception as e:
+            st.error(f"Errore durante l'aggiornamento: {e}")
+
 
 df = load_data()
 
@@ -152,3 +162,4 @@ columns_to_show = [
     "tournament_name", "course", "purse", "dates"
 ]
 st.dataframe(df[columns_to_show].reset_index(drop=True))
+
