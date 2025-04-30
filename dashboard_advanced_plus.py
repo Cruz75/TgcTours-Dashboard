@@ -1,8 +1,6 @@
 import streamlit as st
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 
 # ---- Configurazione pagina ----
 st.set_page_config(page_title="TGC Tours Dashboard 2025", layout="wide")
@@ -14,7 +12,7 @@ st.markdown("---")
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
-# ---- Caricamento dati ----
+# ---- Caricamento dati raw ----
 @st.cache_data(ttl=600)
 def load_data():
     query = """
@@ -24,21 +22,55 @@ def load_data():
     """
     return pd.read_sql(query, engine)
 
-df = load_data()
+# ---- Preparazione dati (ranking, formattazioni) ----
+@st.cache_data(ttl=600)
+def prepare_dataframe(df_raw):
+    df = df_raw.copy()
+    # Crea label torneo per selezione
+    df["torneo_label"] = (
+        df["week"].astype(str).str.zfill(2)
+        + " – "
+        + df["tournament_name"]
+        + " ("
+        + df["dates"]
+        + ")"
+    )
+    # Calcolo posizione
+    df["completo"] = df[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
+    completati = df[df["completo"]].copy()
+    completati["posizione"] = completati["strokes"].rank(method="min").astype(int)
+    incompleti = df[~df["completo"]].copy()
+    incompleti["posizione"] = None
+    df = pd.concat([completati, incompleti]).sort_values(
+        by=["completo", "posizione"], ascending=[False, True]
+    )
+    # Format valori monetari
+    df["earnings"] = df["earnings"].apply(lambda x: f"${x:,}" if pd.notnull(x) and x else "")
+    df["purse"] = df["purse"].apply(lambda x: f"${x:,}" if pd.notnull(x) else "")
+    # Icone promozioni/retrocessioni
+    def promo_icons(promo):
+        if not promo or pd.isna(promo):
+            return ""
+        mapping = {"+1": "🟢", "-1": "🔴", "winner": "🏆", "fast_track": "⚡"}
+        return " ".join(mapping.get(m, "") for m in promo.split(","))
+    df["promotion"] = df["promotion"].apply(promo_icons)
+    return df
 
-# ---- Estrai date torneo ----
-def estrai_date_range(date_str):
-    try:
-        start, end = date_str.split(" - ")
-        start = pd.to_datetime(start, format="%m/%d")
-        end = pd.to_datetime(end, format="%m/%d")
-        return start.replace(year=2025), end.replace(year=2025)
-    except:
-        return pd.NaT, pd.NaT
+# ---- Filtraggio dati ----
+@st.cache_data()
+def filter_dataframe(df_processed, group, platform, nationality, torneo_label):
+    df = df_processed.copy()
+    if group != "Tutti":
+        df = df[df["group"] == group]
+    if platform != "Tutti":
+        df = df[df["platform"] == platform]
+    if nationality != "Tutti":
+        df = df[df["nationality"] == nationality]
+    if torneo_label:
+        df = df[df["torneo_label"] == torneo_label]
+    return df
 
-df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
-
-# ---- Funzione di aggiornamento dei tornei ----
+# ---- Update database button ----
 def update_all():
     import scraper_update_fixed
     scraper_update_fixed.main()
@@ -50,60 +82,50 @@ if st.button("🔄 Aggiorna database tornei"):
             st.success("✅ Database tornei aggiornato")
         except Exception as e:
             st.error(f"Errore: {e}")
+st.markdown("---")
 
-# ---- Sidebar filtri ----
+# ---- Main workflow ----
+df_raw = load_data()
+df_prepared = prepare_dataframe(df_raw)
+
+# Sidebar filtri
 st.sidebar.header("Filtri")
 placeholder = st.sidebar.empty()
 
-group_options = ["Tutti"] + sorted(df["group"].unique())
+group_options = ["Tutti"] + sorted(df_prepared["group"].unique())
 selected_group = st.sidebar.selectbox("Gruppo", group_options)
-if selected_group != "Tutti":
-    df = df[df["group"] == selected_group]
 
-platform_options = ["Tutti"] + sorted(df["platform"].dropna().unique())
+platform_options = ["Tutti"] + sorted(df_prepared["platform"].dropna().unique())
 selected_platform = st.sidebar.selectbox("Piattaforma", platform_options)
-if selected_platform != "Tutti":
-    df = df[df["platform"] == selected_platform]
 
-nation_options = ["Tutti"] + sorted(df["nationality"].dropna().unique())
+nation_options = ["Tutti"] + sorted(df_prepared["nationality"].dropna().unique())
 selected_nation = st.sidebar.selectbox("Nazionalità", nation_options)
-if selected_nation != "Tutti":
-    df = df[df["nationality"] == selected_nation]
 
-# ---- Selezione torneo ----
-df["torneo_label"] = df["week"].astype(str).str.zfill(2) + " – " + df["tournament_name"] + " (" + df["dates"] + ")"
-tornei_unici = sorted(df["torneo_label"].unique())
+# Selezione torneo
+tornei_unici = sorted(df_prepared["torneo_label"].unique())
 selected_tournament = st.sidebar.radio("Torneo", tornei_unici)
 placeholder.markdown(f"**Selezionato:** {selected_tournament}")
 
-df = df[df["torneo_label"] == selected_tournament]
+# Filtra dati
+df_filtered = filter_dataframe(
+    df_prepared, selected_group, selected_platform, selected_nation, selected_tournament
+)
 
-# ---- Calcolo posizione e format valori ----
-df["completo"] = df[["r1","r2","r3","r4"]].notnull().all(axis=1)
-completi = df[df["completo"]].copy()
+
+# ---- Ricalcolo posizione relativo alla selezione ----
+df_filtered["completo"] = df_filtered[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
+completi = df_filtered[df_filtered["completo"]].copy()
 completi["posizione"] = completi["strokes"].rank(method="min").astype(int)
-incompleti = df[~df["completo"]].copy()
+incompleti = df_filtered[~df_filtered["completo"]].copy()
 incompleti["posizione"] = None
-df = pd.concat([completi, incompleti]).sort_values(by=["completo","posizione"], ascending=[False,True])
-
-df["earnings"] = df["earnings"].apply(lambda x: f"${x:,}" if pd.notnull(x) and x else "")
-df["purse"] = df["purse"].apply(lambda x: f"${x:,}" if pd.notnull(x) else "")
-def promo_icons(promo):
-    if not promo or pd.isna(promo): return ""
-    mapping = {"+1":"🟢", "-1":"🔴", "winner":"🏆", "fast_track":"⚡"}
-    return " ".join(mapping.get(m, "") for m in promo.split(","))
-df["promotion"] = df["promotion"].apply(promo_icons)
-
-# ---- Calcola Over/Under basato sul vincitore ----
-if not df.empty:
-    winner = df.loc[df["posizione"] == 1].iloc[0]
-    par_total = winner["strokes"] + winner["total"]
-    df["over_under"] = df["strokes"] - par_total
-    df["total"] = df["over_under"]
+df_filtered = pd.concat([completi, incompleti]).sort_values(by=["completo", "posizione"], ascending=[False, True])
 
 # ---- Tabella risultati ----
 st.subheader("Classifica Torneo")
-columns = ["posizione","player","group","nationality","platform",
-           "r1","r2","r3","r4","strokes","total","earnings","promotion",
-           "tournament_name","course","purse","dates"]
-st.dataframe(df[columns], height=600, use_container_width=True)
+columns = [
+    "posizione", "player", "group", "nationality", "platform",
+    "r1", "r2", "r3", "r4", "strokes", "total",
+    "earnings", "promotion",
+    "tournament_name", "course", "purse", "dates"
+]
+st.dataframe(df_filtered[columns], height=600, use_container_width=True)
