@@ -15,7 +15,7 @@ st.markdown("---")
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
-# ---- Funzione di caricamento dati ----
+# ---- Caricamento dati ----
 @st.cache_data(ttl=600)
 def load_data():
     query = """
@@ -23,15 +23,27 @@ def load_data():
     FROM leaderboards AS l
     JOIN tournaments AS t ON l.tournament_id = t.id
     """
-    df = pd.read_sql(query, engine)
-    return df
+    return pd.read_sql(query, engine)
 
-# ---- Funzione per aggiornare tornei e leaderboard ----
+df = load_data()
+
+# ---- Estrai date torneo ----
+def estrai_date_range(date_str):
+    try:
+        start, end = date_str.split(" - ")
+        start = pd.to_datetime(start, format="%m/%d")
+        end = pd.to_datetime(end, format="%m/%d")
+        return start.replace(year=2025), end.replace(year=2025)
+    except:
+        return pd.NaT, pd.NaT
+
+df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
+
+# ---- Funzione di aggiornamento dei tornei ----
 def update_all():
     import scraper_update_fixed
     scraper_update_fixed.main()
 
-# ---- Pulsante di aggiornamento ----
 if st.button("🔄 Aggiorna database tornei"):
     with st.spinner("Aggiornamento in corso..."):
         try:
@@ -41,23 +53,11 @@ if st.button("🔄 Aggiorna database tornei"):
             st.error(f"Errore: {e}")
 st.markdown("---")
 
-# ---- Caricamento e preparazione dati ----
-df = load_data()
-
-# ---- Estrai date torneo ----
-def estrai_date_range(date_str):
-    try:
-        start, end = date_str.split(" - ")
-        start = pd.to_datetime(start, format="%m/%d")
-        end = pd.to_datetime(end, format="%m/%d")
-        return start.replace(year=2025).replace(year=2025), end.replace(year=2025)
-    except:
-        return None, None
-
-df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
-
-# ---- Filtri nella sidebar ----
+# ---- Sidebar filtri ----
 st.sidebar.header("Filtri")
+# Placeholder per selezione torneo visualizzata in alto
+placeholder = st.sidebar.empty()
+
 group_options = ["Tutti"] + sorted(df["group"].unique())
 selected_group = st.sidebar.selectbox("Gruppo", group_options)
 if selected_group != "Tutti":
@@ -76,16 +76,14 @@ if selected_nation != "Tutti":
 # ---- Selezione torneo ----
 df["torneo_label"] = df["week"].astype(str).str.zfill(2) + " – " + df["tournament_name"] + " (" + df["dates"] + ")"
 tornei_unici = sorted(df["torneo_label"].unique())
-st.sidebar.markdown(f"**Selezionato:** {selected_tournament}")
-
 selected_tournament = st.sidebar.radio("Torneo", tornei_unici)
+# Aggiorna placeholder sopra
+placeholder.markdown(f"**Selezionato:** {selected_tournament}")
+
 df = df[df["torneo_label"] == selected_tournament]
-
-st.sidebar.markdown(f"**Selezionato:** {selected_tournament}")
-
 st.markdown("---")
 
-# ---- Calcolo posizione ----
+# ---- Calcolo posizione e format valori ----
 df["completo"] = df[["r1","r2","r3","r4"]].notnull().all(axis=1)
 completi = df[df["completo"]].copy()
 completi["posizione"] = completi["strokes"].rank(method="min").astype(int)
@@ -93,7 +91,6 @@ incompleti = df[~df["completo"]].copy()
 incompleti["posizione"] = None
 df = pd.concat([completi, incompleti]).sort_values(by=["completo","posizione"], ascending=[False,True])
 
-# ---- Format valori ----
 df["earnings"] = df["earnings"].apply(lambda x: f"${x:,}" if pd.notnull(x) and x else "")
 df["purse"] = df["purse"].apply(lambda x: f"${x:,}" if pd.notnull(x) else "")
 def promo_icons(promo):
@@ -109,21 +106,25 @@ columns = ["posizione","player","group","nationality","platform",
            "tournament_name","course","purse","dates"]
 st.dataframe(df[columns], height=600, use_container_width=True)
 
-# ---- Calendario in fondo ----
+# ---- Calendario in basso ----
 st.markdown("---")
 st.subheader("📅 Calendario dei Tornei")
-eventi = []
-for row in df[["tournament_name","start_date","end_date"]].drop_duplicates().itertuples():
-    eventi.append({
-        "title": row.tournament_name,
-        "start": row.start_date.isoformat(),
-        "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),
-        "allDay": True
-    })
-calendar_config = {
-    "initialView":"dayGridMonth",
-    "headerToolbar":{"left":"prev,next","center":"title","right":""},
-    "events":eventi,
-    "height":300
-}
-calendar(events=eventi, options=calendar_config)
+col1, col2, col3 = st.columns([1,3,1])
+with col2:
+    eventi = []
+    for row in df[["tournament_name", "start_date", "end_date"]].drop_duplicates().itertuples():
+        if pd.notnull(row.start_date):
+            eventi.append({
+                "title": row.tournament_name,
+                "start": row.start_date.isoformat(),
+                "end": (row.end_date + pd.Timedelta(days=1)).isoformat(),
+                "allDay": True
+            })
+    calendar_config = {
+        "initialView":"dayGridMonth",
+        "headerToolbar":{"left":"prev,next","center":"title","right":""},
+        "events":eventi,
+        "height":500,
+        "aspectRatio":1
+    }
+    calendar(events=eventi, options=calendar_config)
