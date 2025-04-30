@@ -1,6 +1,5 @@
-import streamlit as st
-st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
+
 
 # Funzione per estrarre date da stringa tipo "10/07 - 10/12"
 def estrai_date_range(date_str):
@@ -15,6 +14,7 @@ def estrai_date_range(date_str):
 
 
 import streamlit as st
+st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 import pandas as pd
 from sqlalchemy import create_engine, text
 import requests
@@ -24,7 +24,6 @@ import time
 DB_URL = st.secrets["connection_string"]
 engine = create_engine(DB_URL)
 
-st.set_page_config(page_title="TGC Tours Dashboard", layout="wide")
 
 st.markdown("""
     <style>
