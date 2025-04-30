@@ -81,7 +81,7 @@ selected_tournament = st.sidebar.radio("Torneo", tornei_unici)
 placeholder.markdown(f"**Selezionato:** {selected_tournament}")
 
 df = df[df["torneo_label"] == selected_tournament]
-st.markdown("---")
+
 
 # ---- Calcolo posizione e format valori ----
 df["completo"] = df[["r1","r2","r3","r4"]].notnull().all(axis=1)
