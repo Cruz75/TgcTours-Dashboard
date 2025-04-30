@@ -106,6 +106,13 @@ if st.button("🔄 Aggiorna database tornei"):
 df = load_data()
 
 
+# Estrazione date per calendario e filtro data
+df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
+df["start_date"] = pd.to_datetime(df["start_date"]).dt.date
+df["end_date"] = pd.to_datetime(df["end_date"]).dt.date
+
+
+
 from streamlit_calendar import calendar
 import json
 
