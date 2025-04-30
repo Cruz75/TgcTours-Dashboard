@@ -4,3 +4,4 @@ sqlalchemy
 beautifulsoup4
 requests
 psycopg2-binary
+streamlit-calendar
