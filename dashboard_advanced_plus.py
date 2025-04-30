@@ -1,115 +1,131 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
-import numpy as np
 from sqlalchemy import create_engine
 
 # ---- Configurazione pagina ----
-st.set_page_config(page_title="TGC Tours Dashboard con Grafici", layout="wide")
+st.set_page_config(page_title="TGC Tours Dashboard 2025", layout="wide")
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
-st.markdown("Dashboard con statistiche e grafici avanzati – esclusi Istogramma strokes vs par e WGR.")
+st.markdown("Analisi completa dei tornei PGA Tour 2K25: filtra, esplora e aggiorna i dati con un click.")
+st.markdown("---")
 
-# ---- Connessione e caricamento dati ----
-engine = create_engine(st.secrets["connection_string"])
+# ---- Connessione a Supabase ----
+DB_URL = st.secrets["connection_string"]
+engine = create_engine(DB_URL)
 
+# ---- Caricamento dati raw ----
 @st.cache_data(ttl=600)
 def load_data():
-    df = pd.read_sql(
-        """
-        SELECT l.*, t.week, t.dates, t.tournament_name, t.course, t.purse
-        FROM leaderboards l
-        JOIN tournaments t ON l.tournament_id = t.id
-        """, engine)
-    # Estrai date
-    def estrai_date_range(date_str):
-        try:
-            start, end = date_str.split(" - ")
-            start = pd.to_datetime(start, format="%m/%d")
-            end = pd.to_datetime(end, format="%m/%d")
-            return start, end
-        except:
-            return None, None
-    df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
-    # Prepara total come over/under se già presente, altrimenti usa strokes
-    if "over_under" in df.columns:
-        df["total_rel"] = df["over_under"]
-    else:
-        df["total_rel"] = df["strokes"]
+    query = """
+    SELECT l.*, t.week, t.dates, t.tournament_name, t.course, t.purse
+    FROM leaderboards AS l
+    JOIN tournaments AS t ON l.tournament_id = t.id
+    """
+    return pd.read_sql(query, engine)
+
+# ---- Preparazione dati (ranking, formattazioni) ----
+@st.cache_data(ttl=600)
+def prepare_dataframe(df_raw):
+    df = df_raw.copy()
+    # Crea label torneo per selezione
+    df["torneo_label"] = (
+        df["week"].astype(str).str.zfill(2)
+        + " – "
+        + df["tournament_name"]
+        + " ("
+        + df["dates"]
+        + ")"
+    )
+    # Calcolo posizione
+    df["completo"] = df[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
+    completati = df[df["completo"]].copy()
+    completati["posizione"] = completati["strokes"].rank(method="min").astype(int)
+    incompleti = df[~df["completo"]].copy()
+    incompleti["posizione"] = None
+    df = pd.concat([completati, incompleti]).sort_values(
+        by=["completo", "posizione"], ascending=[False, True]
+    )
+    # Format valori monetari
+    df["earnings"] = df["earnings"].apply(lambda x: f"${x:,}" if pd.notnull(x) and x else "")
+    df["purse"] = df["purse"].apply(lambda x: f"${x:,}" if pd.notnull(x) else "")
+    # Icone promozioni/retrocessioni
+    def promo_icons(promo):
+        if not promo or pd.isna(promo):
+            return ""
+        mapping = {"+1": "🟢", "-1": "🔴", "winner": "🏆", "fast_track": "⚡"}
+        return " ".join(mapping.get(m, "") for m in promo.split(","))
+    df["promotion"] = df["promotion"].apply(promo_icons)
     return df
 
-df = load_data()
+# ---- Filtraggio dati ----
+@st.cache_data()
+def filter_dataframe(df_processed, group, platform, nationality, torneo_label):
+    df = df_processed.copy()
+    if group != "Tutti":
+        df = df[df["group"] == group]
+    if platform != "Tutti":
+        df = df[df["platform"] == platform]
+    if nationality != "Tutti":
+        df = df[df["nationality"] == nationality]
+    if torneo_label:
+        df = df[df["torneo_label"] == torneo_label]
+    return df
 
-# ---- Sidebar filtri ----
+# ---- Update database button ----
+def update_all():
+    import scraper_update_fixed
+    scraper_update_fixed.main()
+
+if st.button("🔄 Aggiorna database tornei"):
+    with st.spinner("Aggiornamento in corso..."):
+        try:
+            update_all()
+            st.success("✅ Database tornei aggiornato")
+        except Exception as e:
+            st.error(f"Errore: {e}")
+st.markdown("---")
+
+# ---- Main workflow ----
+df_raw = load_data()
+df_prepared = prepare_dataframe(df_raw)
+
+# Sidebar filtri
 st.sidebar.header("Filtri")
-group = st.sidebar.selectbox("Gruppo", ["Tutti"] + sorted(df["group"].unique()))
-platform = st.sidebar.selectbox("Piattaforma", ["Tutti"] + sorted(df["platform"].dropna().unique()))
-nation = st.sidebar.selectbox("Nazionalità", ["Tutti"] + sorted(df["nationality"].dropna().unique()))
-tournament = st.sidebar.radio("Torneo", sorted(df["tournament_name"].unique()))
+placeholder = st.sidebar.empty()
 
-# Applica filtri
-df_f = df.copy()
-if group!="Tutti": df_f = df_f[df_f["group"]==group]
-if platform!="Tutti": df_f = df_f[df_f["platform"]==platform]
-if nation!="Tutti": df_f = df_f[df_f["nationality"]==nation]
-df_t = df_f[df_f["tournament_name"]==tournament]
+group_options = ["Tutti"] + sorted(df_prepared["group"].unique())
+selected_group = st.sidebar.selectbox("Gruppo", group_options)
 
-# ---- Selezione giocatori per grafico 1 e 6 ----
-players = df_t["player"].unique().tolist()
-selected_players = st.multiselect("Seleziona giocatori per grafico 1", players, default=players[:5])
+platform_options = ["Tutti"] + sorted(df_prepared["platform"].dropna().unique())
+selected_platform = st.sidebar.selectbox("Piattaforma", platform_options)
 
-# ---- 1. Andamento dei punteggi per giro ----
-st.subheader("1. Andamento punteggi per giro")
-fig, ax = plt.subplots()
-for p in selected_players:
-    rounds = df_t[df_t["player"]==p][["r1","r2","r3","r4"]].iloc[0].astype(float).values
-    ax.plot([1,2,3,4], rounds, marker='o', label=p)
-ax.set_xlabel("Round")
-ax.set_ylabel("Colpi")
-ax.legend()
-st.pyplot(fig)
+nation_options = ["Tutti"] + sorted(df_prepared["nationality"].dropna().unique())
+selected_nation = st.sidebar.selectbox("Nazionalità", nation_options)
 
-# ---- 3. Ripartizione monte premi ----
-st.subheader("3. Earnings per Nazionalità")
-earn_nation = df_f.groupby("nationality")["earnings"].sum().replace('[\$,]', '', regex=True).astype(float)
-fig, ax = plt.subplots()
-ax.barh(earn_nation.index, earn_nation.values)
-ax.set_xlabel("Earnings totali")
-st.pyplot(fig)
+# Selezione torneo
+tornei_unici = sorted(df_prepared["torneo_label"].unique())
+selected_tournament = st.sidebar.radio("Torneo", tornei_unici)
+placeholder.markdown(f"**Selezionato:** {selected_tournament}")
 
-st.subheader("3b. Earnings per Piattaforma")
-earn_plat = df_f.groupby("platform")["earnings"].sum().replace('[\$,]', '', regex=True).astype(float)
-fig, ax = plt.subplots()
-ax.barh(earn_plat.index, earn_plat.values)
-ax.set_xlabel("Earnings totali")
-st.pyplot(fig)
+# Filtra dati
+df_filtered = filter_dataframe(
+    df_prepared, selected_group, selected_platform, selected_nation, selected_tournament
+)
 
-# ---- 4. Scatter strokes vs earnings ----
-st.subheader("4. Colpi vs Earnings")
-fig, ax = plt.subplots()
-x = df_t["strokes"].astype(float)
-y = df_t["earnings"].replace('[\$,]', '', regex=True).astype(float)
-ax.scatter(x, y)
-ax.set_xlabel("Strokes")
-ax.set_ylabel("Earnings")
-st.pyplot(fig)
 
-# ---- 5. Top 10 giocatori per media colpi ----
-st.subheader("5. Top 10 media colpi (Stagione)")
-avg_strokes = df_f.groupby("player")["strokes"].mean().nsmallest(10)
-fig, ax = plt.subplots()
-ax.barh(avg_strokes.index, avg_strokes.values)
-ax.set_xlabel("Media colpi")
-st.pyplot(fig)
+# ---- Ricalcolo posizione relativo alla selezione ----
+df_filtered["completo"] = df_filtered[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
+completi = df_filtered[df_filtered["completo"]].copy()
+completi["posizione"] = completi["strokes"].rank(method="min").astype(int)
+incompleti = df_filtered[~df_filtered["completo"]].copy()
+incompleti["posizione"] = None
+df_filtered = pd.concat([completi, incompleti]).sort_values(by=["completo", "posizione"], ascending=[False, True])
 
-# ---- 7. Heatmap performance per round ----
-st.subheader("7. Heatmap punteggi per round")
-heat = df_t.pivot(index="player", columns=["r1","r2","r3","r4"], values="r1") # wrong structure
-# Instead construct matrix manually:
-m = df_t.set_index("player")[["r1","r2","r3","r4"]].astype(float)
-fig, ax = plt.subplots()
-cax = ax.imshow(m.values, aspect="auto", interpolation="nearest")
-ax.set_xticks(range(4))
-ax.set_xticklabels(["R1","R2","R3","R4"])
-ax.set_yticks(range(len(m.index)))
-ax.set_yticklabels(m.index)
-st.pyplot(fig)
+# ---- Tabella risultati ----
+st.subheader("Classifica Torneo")
+columns = [
+    "posizione", "player", "group", "nationality", "platform",
+    "r1", "r2", "r3", "r4", "strokes", "total",
+    "earnings", "promotion",
+    "tournament_name", "course", "purse", "dates"
+]
+st.dataframe(df_filtered[columns], height=600, use_container_width=True)
