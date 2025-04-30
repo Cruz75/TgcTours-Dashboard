@@ -51,7 +51,7 @@ if st.button("🔄 Aggiorna database tornei"):
             st.success("✅ Database tornei aggiornato")
         except Exception as e:
             st.error(f"Errore: {e}")
-st.markdown("---")
+
 
 # ---- Sidebar filtri ----
 st.sidebar.header("Filtri")
