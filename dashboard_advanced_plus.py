@@ -206,3 +206,4 @@ st.dataframe(
     df[columns_to_show].reset_index(drop=True),
     height=700,
     use_container_width=True
+)
