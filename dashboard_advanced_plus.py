@@ -1,4 +1,16 @@
 
+# Funzione per estrarre date da stringa tipo "10/07 - 10/12"
+def estrai_date_range(date_str):
+    try:
+        start, end = date_str.split(" - ")
+        start = pd.to_datetime(start, format="%m/%d")
+        end = pd.to_datetime(end, format="%m/%d")
+        return start.replace(year=2025), end.replace(year=2025)
+    except:
+        return None, None
+
+
+
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
