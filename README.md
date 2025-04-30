@@ -25,7 +25,7 @@ beautifulsoup4
 
 ```
 📁 project-root
-├── dashboard_ricostruita.py
+├── dashboard_advanced_plus.py
 ├── scraper_update_fixed.py
 ├── requirements.txt
 └── .streamlit/
