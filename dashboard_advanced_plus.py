@@ -105,6 +105,38 @@ if st.button("🔄 Aggiorna database tornei"):
 
 df = load_data()
 
+
+# 📅 Selezione opzionale per data
+@st.cache_data
+def estrai_date_range(date_str):
+    try:
+        start, end = date_str.split(" - ")
+        start = pd.to_datetime(start, format="%m/%d")
+        end = pd.to_datetime(end, format="%m/%d")
+        return start.replace(year=2025), end.replace(year=2025)
+    except:
+        return None, None
+
+df["start_date"], df["end_date"] = zip(*df["dates"].apply(estrai_date_range))
+
+usa_data = st.checkbox("📅 Filtra tornei per data", value=False)
+
+if usa_data:
+    min_data = df["start_date"].min()
+    max_data = df["end_date"].max()
+    selezione = st.date_input("Seleziona una data", value=min_data, min_value=min_data, max_value=max_data)
+    tornei_attivi = df[(df["start_date"] <= selezione) & (df["end_date"] >= selezione)]
+    if not tornei_attivi.empty:
+        df = tornei_attivi.copy()
+        st.markdown("### Tornei attivi nella data selezionata:")
+        for torneo in tornei_attivi["tournament_name"].unique():
+            st.markdown(f"- {torneo}")
+    else:
+        st.info("Nessun torneo attivo in questa data.")
+else:
+    st.markdown("### Visualizzazione completa senza filtro per data")
+
+
 group_options = ["Tutti"] + sorted(df["group"].unique())
 selected_group = st.sidebar.selectbox("Filtro gruppo", group_options)
 if selected_group != "Tutti":
@@ -125,6 +157,11 @@ df["torneo_label"] = df["week"].astype(str).str.zfill(2) + " - " + df["tournamen
 tornei_unici = sorted(df["torneo_label"].unique())
 selected_tournament = st.sidebar.radio("Seleziona torneo", tornei_unici)
 df = df[df["torneo_label"] == selected_tournament]
+
+# 🎯 Filtri selezionati
+st.markdown(f"**Torneo selezionato:** `{selected_tournament}`")
+st.markdown(f"**Gruppo:** `{selected_group}` | **Piattaforma:** `{selected_platform}` | **Nazionalità:** `{selected_nation}`")
+
 
 df["completo"] = df[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
 df["posizione"] = None
@@ -155,11 +192,18 @@ def promotion_to_icons(promo):
 
 df["promotion"] = df["promotion"].apply(promotion_to_icons)
 
-st.title("Risultati torneo selezionato")
+
+st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
+st.markdown("Analisi completa dei tornei ufficiali su PGA Tour 2K25. Filtra per gruppo, torneo, piattaforma e nazionalità.")
+st.markdown("---")
+
 columns_to_show = [
     "posizione", "player", "group", "nationality", "platform",
     "r1", "r2", "r3", "r4", "strokes", "total", "earnings", "promotion",
     "tournament_name", "course", "purse", "dates"
 ]
-st.dataframe(df[columns_to_show].reset_index(drop=True))
-
+st.dataframe(
+    df[columns_to_show].reset_index(drop=True),
+    height=700,
+    use_container_width=True
+))
