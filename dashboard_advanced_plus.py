@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 # ---- Configurazione pagina ----
 st.set_page_config(page_title="TGC Tours Dashboard 2025", layout="wide")
 st.title("🏌️‍♂️ TGC Tours Dashboard 2025")
-st.markdown("Analisi completa dei tornei PGA Tour 2K25: filtra, esplora e aggiorna i dati con un click.")
+st.markdown("Analisi completa dei tornei CHALLENGE TGC: filtra, esplora e aggiorna i dati con un click.")
 st.markdown("---")
 
 # ---- Connessione a Supabase ----
