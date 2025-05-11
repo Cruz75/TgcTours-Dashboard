@@ -5,10 +5,7 @@ from bs4 import BeautifulSoup
 from sqlalchemy import create_engine, text
 
 # 📌 Sostituisci con la tua connection string Supabase
-SUPABASE_CONNECTION_STRING = (
-    "postgresql://postgres:eqxbysuhuvmuxkowzzzi:#R!Pr_#%J6)briX"
-    "@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
-)
+SUPABASE_CONNECTION_STRING = "postgresql://postgres.eqxbysuhuvmuxkowzzzi:#R!Pr_#%J6)briX@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
 
 # Mappatura gruppi → tourId
 GROUPS = {
