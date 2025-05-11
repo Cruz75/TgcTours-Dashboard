@@ -1,0 +1,30 @@
+name: 🔄 Update Promotions
+
+on:
+  workflow_dispatch:    # ti permette di lanciarlo manualmente
+  schedule:
+    - cron:  '0 1 * * *' # ogni giorno 1:00 UTC (02:00 CET)
+
+jobs:
+  update-promotions:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
+        pip install requests beautifulsoup4 pandas sqlalchemy psycopg2-binary
+
+    - name: Update promotion marks
+      env:
+        DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      run: |
+        python update_promotions.py
