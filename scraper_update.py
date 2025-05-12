@@ -21,6 +21,17 @@ def get_existing_tournament_ids(engine):
     except:
         return set()
 
+def should_update_leaderboard(engine, tournament_id):
+    try:
+        df = pd.read_sql(f"""
+            SELECT COUNT(*) = 0 AS needs_update
+            FROM leaderboards
+            WHERE tournament_id = {tournament_id} AND (promotion IS NULL OR promotion = '')
+        """, engine)
+        return df.iloc[0]["needs_update"]
+    except:
+        return True
+
 def get_tournaments(group_id):
     url = f"https://www.tgctours.com/Tour/Tournaments?tourId={group_id}&season={SEASON}"
     res = requests.get(url)
@@ -57,7 +68,7 @@ def get_leaderboard(tournament_id, group_letter):
     players = []
     for row in rows:
         cols = row.find_all("td")
-        if len(cols) >= 13:  # aggiornato!
+        if len(cols) >= 13:
             try:
                 nation_tag = cols[1].find("span")
                 nationality = nation_tag["title"] if nation_tag else None
@@ -75,7 +86,7 @@ def get_leaderboard(tournament_id, group_letter):
                 earnings_raw = cols[10].text.strip().replace("$", "").replace(",", "")
                 earnings = int(earnings_raw) if earnings_raw.isdigit() else 0
 
-                promotion = cols[12].text.strip() or None  # aggiornato!
+                promotion = cols[12].text.strip() or None
 
                 players.append({
                     "player": player,
@@ -91,33 +102,38 @@ def get_leaderboard(tournament_id, group_letter):
                 continue
     return players
 
-
 def main():
     engine = create_engine(SUPABASE_CONNECTION_STRING)
     existing_ids = get_existing_tournament_ids(engine)
 
     all_tournaments = []
-    all_leaderboards = []
 
     for group_letter, group_id in GROUPS.items():
         tournaments = get_tournaments(group_id)
-        new_tournaments = [t for t in tournaments if t["id"] not in existing_ids]
-        all_tournaments.extend(new_tournaments)
-        print(f"🆕 Gruppo {group_letter} → {len(new_tournaments)} nuovi tornei.")
-        for t in new_tournaments:
-            leaderboard = get_leaderboard(t["id"], group_letter)
-            all_leaderboards.extend(leaderboard)
-            print(f"  ↳ {t['tournament_name']} → {len(leaderboard)} giocatori.")
-            time.sleep(0.5)
+        print(f"📥 Gruppo {group_letter} - {len(tournaments)} tornei trovati")
+        for t in tournaments:
+            is_new = t["id"] not in existing_ids
+            should_update = should_update_leaderboard(engine, t["id"])
+
+            if is_new or should_update:
+                if is_new:
+                    all_tournaments.append(t)
+
+                leaderboard = get_leaderboard(t["id"], group_letter)
+                df_lead = pd.DataFrame(leaderboard)
+
+                engine.execute(f"DELETE FROM leaderboards WHERE tournament_id = {t['id']}")
+                df_lead.to_sql("leaderboards", engine, if_exists="append", index=False)
+
+                print(f"  ↳ {t['tournament_name']} → {len(leaderboard)} giocatori{' (new)' if is_new else ' (aggiornato)'}")
+                time.sleep(0.5)
 
     if all_tournaments:
         df_tour = pd.DataFrame(all_tournaments)
-        df_lead = pd.DataFrame(all_leaderboards)
         df_tour.to_sql("tournaments", engine, if_exists="append", index=False)
-        df_lead.to_sql("leaderboards", engine, if_exists="append", index=False)
-        print("✅ Dati nuovi inseriti.")
+        print("✅ Nuovi tornei aggiunti.")
     else:
-        print("⏸ Nessun nuovo torneo trovato.")
+        print("⏸ Nessun nuovo torneo aggiunto.")
 
 if __name__ == "__main__":
     main()
