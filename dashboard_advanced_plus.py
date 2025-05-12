@@ -30,15 +30,24 @@ def prepare_dataframe(df):
         df["week"].astype(str).str.zfill(2) + " – " + df["tournament_name"] + " (" + df["dates"] + ")"
     )
     df["completo"] = df[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
-    df.loc[df["completo"], "posizione"] = df[df["completo"]]["strokes"].rank(method="min").astype(int)
     df["promotion"] = df["promotion"].fillna("")
 
     icon_map = {"+1": "🟢", "-1": "🔴", "winner": "🏆", "fast_track": "⚡"}
     def render_icons(p):
         return " ".join(icon_map.get(i, "") for i in p.split(",")) if p else ""
 
-    df["promotion_icon"] = df["promotion"].apply(render_icons)
-    return df
+    df["promotion_icon"] = df.apply(lambda row: "" if row["tournament_id"] == 30 else render_icons(row["promotion"]), axis=1)
+
+    # Ordinamento classifica completo
+    df_completi = df[df["completo"]].copy()
+    df_completi = df_completi.sort_values(by=["strokes", "r4", "r3", "r2", "r1"], ascending=True)
+    df_completi["posizione"] = range(1, len(df_completi) + 1)
+
+    df_incompleti = df[~df["completo"]].copy()
+    df_incompleti["posizione"] = None
+
+    df_final = pd.concat([df_completi, df_incompleti], ignore_index=True)
+    return df_final
 
 # ---- Filtri ----
 @st.cache_data()
