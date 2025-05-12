@@ -75,7 +75,7 @@ def get_leaderboard(tournament_id, group_letter):
                 earnings_raw = cols[10].text.strip().replace("$", "").replace(",", "")
                 earnings = int(earnings_raw) if earnings_raw.isdigit() else 0
 
-                promotion = cols[11].text.strip() or None
+                promotion = cols[12].text.strip() or None
 
                 players.append({
                     "player": player,
