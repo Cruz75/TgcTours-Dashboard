@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 import time
 
 # 🔐 Inserisci la tua connection string Supabase qui
-SUPABASE_CONNECTION_STRING = "postgresql://..."
+SUPABASE_CONNECTION_STRING = "postgresql://postgres.eqxbysuhuvmuxkowzzzi:#R!Pr_#%J6)briX@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
 
 GROUPS = {
     "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 19,
