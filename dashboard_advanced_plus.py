@@ -35,12 +35,12 @@ def prepare_dataframe(df):
     df["promotion"] = df["promotion"].fillna("")
     icon_map = {"+1": "🟢", "-1": "🔴", "winner": "🏆", "fast_track": "⚡"}
 
-    def render_icons(p):
+def render_icons(p):
         return " ".join(icon_map.get(i, "") for i in p.split(",")) if p else ""
 
     df["promotion_icon"] = df["promotion"].apply(render_icons)
 
-        )
+        
 
     # Ordinamento classifica completo
     df_completi = df[df["completo"]].copy()
