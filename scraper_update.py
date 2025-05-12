@@ -5,7 +5,7 @@ from sqlalchemy import create_engine, text
 import time
 
 # 🔐 Inserisci la tua connection string Supabase qui
-SUPABASE_CONNECTION_STRING = "postgresql://postgres.eqxbysuhuvmuxkowzzzi:#R!Pr_#%J6)briX@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
+SUPABASE_CONNECTION_STRING = "postgresql://..."
 
 GROUPS = {
     "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 19,
@@ -24,11 +24,14 @@ def get_existing_tournament_ids(engine):
 def should_update_leaderboard(engine, tournament_id):
     try:
         df = pd.read_sql(f"""
-            SELECT COUNT(*) = 0 AS needs_update
+            SELECT promotion
             FROM leaderboards
-            WHERE tournament_id = {tournament_id} AND (promotion IS NULL OR promotion = '')
+            WHERE tournament_id = {tournament_id}
+            ORDER BY strokes ASC, r4 ASC, r3 ASC, r2 ASC, r1 ASC
+            LIMIT 1
         """, engine)
-        return df.iloc[0]["needs_update"]
+        promo = df.iloc[0]["promotion"]
+        return promo is None or promo.strip() == ""
     except:
         return True
 
