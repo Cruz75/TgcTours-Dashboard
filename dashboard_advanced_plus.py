@@ -36,7 +36,9 @@ def prepare_dataframe(df):
     def render_icons(p):
         return " ".join(icon_map.get(i, "") for i in p.split(",")) if p else ""
 
-    df["promotion_icon"] = df.apply(lambda row: "" if row["tournament_id"] == 30 else render_icons(row["promotion"]), axis=1)
+    df["promotion_icon"] = df["promotion"].apply(render_icons),
+        axis=1
+    )
 
     # Ordinamento classifica completo
     df_completi = df[df["completo"]].copy()
