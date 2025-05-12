@@ -71,7 +71,7 @@ def get_leaderboard(tournament_id, group_letter):
     players = []
     for row in rows:
         cols = row.find_all("td")
-        if len(cols) >= 13:
+        if len(cols) >= 12:
             try:
                 nation_tag = cols[1].find("span")
                 nationality = nation_tag["title"] if nation_tag else None
@@ -89,7 +89,7 @@ def get_leaderboard(tournament_id, group_letter):
                 earnings_raw = cols[10].text.strip().replace("$", "").replace(",", "")
                 earnings = int(earnings_raw) if earnings_raw.isdigit() else 0
 
-                promotion = cols[12].text.strip() or None
+                promotion = cols[11].text.strip() or None
 
                 players.append({
                     "player": player,
