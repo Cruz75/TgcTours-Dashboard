@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import time
 
 # 🔐 Inserisci la tua connection string Supabase qui
