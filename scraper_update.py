@@ -1,11 +1,11 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 import time
 
 # 🔐 Inserisci la tua connection string Supabase qui
-SUPABASE_CONNECTION_STRING = "postgresql://..."
+SUPABASE_CONNECTION_STRING = "postgresql://postgres.eqxbysuhuvmuxkowzzzi:#R!Pr_#%J6)briX@aws-0-eu-central-1.pooler.supabase.com:6543/postgres"
 
 GROUPS = {
     "A": 10, "B": 11, "C": 12, "D": 13, "E": 14, "F": 19,
@@ -122,7 +122,8 @@ def main():
                 leaderboard = get_leaderboard(t["id"], group_letter)
                 df_lead = pd.DataFrame(leaderboard)
 
-                engine.execute(f"DELETE FROM leaderboards WHERE tournament_id = {t['id']}")
+                with engine.begin() as conn:
+                    conn.execute(text("DELETE FROM leaderboards WHERE tournament_id = :tid"), {"tid": t["id"]})
                 df_lead.to_sql("leaderboards", engine, if_exists="append", index=False)
 
                 print(f"  ↳ {t['tournament_name']} → {len(leaderboard)} giocatori{' (new)' if is_new else ' (aggiornato)'}")
