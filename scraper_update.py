@@ -1,7 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine
 import time
 
 # 🔐 Inserisci la tua connection string Supabase qui
@@ -71,7 +71,7 @@ def get_leaderboard(tournament_id, group_letter):
     players = []
     for row in rows:
         cols = row.find_all("td")
-        if len(cols) >= 12:
+        if len(cols) >= 13:
             try:
                 nation_tag = cols[1].find("span")
                 nationality = nation_tag["title"] if nation_tag else None
@@ -89,7 +89,7 @@ def get_leaderboard(tournament_id, group_letter):
                 earnings_raw = cols[10].text.strip().replace("$", "").replace(",", "")
                 earnings = int(earnings_raw) if earnings_raw.isdigit() else 0
 
-                promotion = cols[11].text.strip() or None
+                promotion = cols[12].text.strip() or None
 
                 players.append({
                     "player": player,
@@ -110,6 +110,7 @@ def main():
     existing_ids = get_existing_tournament_ids(engine)
 
     all_tournaments = []
+    all_leaderboards = []
 
     for group_letter, group_id in GROUPS.items():
         tournaments = get_tournaments(group_id)
@@ -119,8 +120,9 @@ def main():
             should_update = should_update_leaderboard(engine, t["id"])
 
             if is_new or should_update:
-                if is_new:
-                    all_tournaments.append(t)
+                # Inserisce o aggiorna il torneo PRIMA della leaderboard
+                df_tour = pd.DataFrame([t])
+                df_tour.to_sql("tournaments", engine, if_exists="append", index=False)
 
                 leaderboard = get_leaderboard(t["id"], group_letter)
                 df_lead = pd.DataFrame(leaderboard)
@@ -132,12 +134,6 @@ def main():
                 print(f"  ↳ {t['tournament_name']} → {len(leaderboard)} giocatori{' (new)' if is_new else ' (aggiornato)'}")
                 time.sleep(0.5)
 
-    if all_tournaments:
-        df_tour = pd.DataFrame(all_tournaments)
-        df_tour.to_sql("tournaments", engine, if_exists="append", index=False)
-        print("✅ Nuovi tornei aggiunti.")
-    else:
-        print("⏸ Nessun nuovo torneo aggiunto.")
-
+    
 if __name__ == "__main__":
     main()
