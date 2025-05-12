@@ -30,19 +30,17 @@ def prepare_dataframe(df):
         df["week"].astype(str).str.zfill(2) + " – " + df["tournament_name"] + " (" + df["dates"] + ")"
     )
     df["completo"] = df[["r1", "r2", "r3", "r4"]].notnull().all(axis=1)
-   
-# Promotion icons
+
+    # Promotion icons
     df["promotion"] = df["promotion"].fillna("")
     icon_map = {"+1": "🟢", "-1": "🔴", "winner": "🏆", "fast_track": "⚡"}
 
-def render_icons(p):
+    def render_icons(p):
         return " ".join(icon_map.get(i, "") for i in p.split(",")) if p else ""
 
     df["promotion_icon"] = df["promotion"].apply(render_icons)
 
-        
-
-    # Ordinamento classifica completo
+    # Ordinamento classifica
     df_completi = df[df["completo"]].copy()
     df_completi = df_completi.sort_values(by=["strokes", "r4", "r3", "r2", "r1"], ascending=True)
     df_completi["posizione"] = range(1, len(df_completi) + 1)
